@@ -2,32 +2,23 @@ import torch
 from PIL import Image
 import os
 import numpy as np
+import torch.backends.cudnn as cudnn
 from utils.gaussian import GaussianGenerator
 import cv2
 from net.craft import CRAFT
 from converts.icdar2013_convert import load_icdar2013, get_wordsList
-from collections import OrderedDict
 from utils.fake_util import crop_image, divide_region, watershed, find_box, cal_confidence
 from utils.box_util import reorder_points, cal_affinity_boxes
 from utils.img_util import img_normalize, load_image
 from itertools import chain
 from utils import imgproc
 from torch.autograd import Variable
+from eval import copyStateDict
 
-def copyStateDict(state_dict):
-    if list(state_dict.keys())[0].startswith("module"):
-        start_idx = 1
-    else:
-        start_idx = 0
-    new_state_dict = OrderedDict()
-    for k, v in state_dict.items():
-        name = ".".join(k.split(".")[start_idx:])
-        new_state_dict[name] = v
-    return new_state_dict
 
 #icdar2013 dataset类
 class Icdar2013Dataset(torch.utils.data.Dataset):
-    def __init__(self, image_transform=None, label_transform=None, target_transform=None, model_path=None, images_dir=None, labels_dir=None):
+    def __init__(self, cuda=False, image_transform=None, label_transform=None, target_transform=None, model_path=None, images_dir=None, labels_dir=None):
         super(Icdar2013Dataset, self).__init__() #继承父类构造方法
         self.model_path = model_path
         #图片名和标签数据（不是标签名）
@@ -35,7 +26,15 @@ class Icdar2013Dataset(torch.utils.data.Dataset):
         self.labels_dir = labels_dir
         self.image_names, self.label_names = load_icdar2013(self.images_dir, self.labels_dir)
         self.craft = CRAFT()
-        self.craft.load_state_dict(copyStateDict(torch.load(self.model_path,map_location='cpu')))
+        self.cuda = cuda
+        if self.cuda:
+            self.craft.load_state_dict(copyStateDict(torch.load(self.model_path)))
+            self.craft = self.craft.cuda()
+            self.net = torch.nn.DataParallel(self.craft)
+            cudnn.benchmark = False
+        else:
+            self.craft.load_state_dict(copyStateDict(torch.load(self.model_path, map_location='cpu')))
+
         self.craft.eval()
 
         self.image_transform = image_transform
@@ -82,8 +81,9 @@ class Icdar2013Dataset(torch.utils.data.Dataset):
             region_boxes = divide_region(word_box, word_length)
             region_boxes = [reorder_points(region_box) for region_box in region_boxes]
             return region_boxes, confidence
+
         img = img_normalize(img)
-        region_score, affinity_score = self.test_net(self.craft, img, False)
+        region_score, affinity_score = self.test_net(self.craft, img, self.cuda)
         heat_map = region_score * 255.
         heat_map = heat_map.astype(np.uint8)
         marker_map = watershed(heat_map)

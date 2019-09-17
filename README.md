@@ -86,17 +86,38 @@ ohem(pos-neg ratio): 1:3
 ### 一、训练
 训练分为两步：
 
-* 1.**强监督训练**
+* **1.强监督训练**
 
 在强数据集(SynthText)上进行，迭代50k次
 
-`python craft_train_synthText.py`
+`sh train_synthText.sh`
+* `--gt_path`: synthtext gt.mat路径
+* `--synth_dir`： synthtext路径
+* `--label_size`：标签热力图尺寸
+* `--batch_size`：训练数据batch size
+* `--test_batch_size`：测试batch size
+* `--max_iter`：最大迭代次数
+* `--lr`：初始学习率
+* `--epochs` ：训练epochs
+* `--test_interval`：测试间隔
+* `--test_iter`：测试迭代次数
 
-* 2.**fine-tuning**
+* **2.fine-tuning**
 
 弱标签数据和强标签数据按照1:5的比例进行训练
 
-`python craft_train.py`
+`sh train_synthText.sh`
+* `--gt_path`: synthtext gt.mat路径
+* `--synth_dir`： synthtext路径
+* `--ic13_root`：ic13数据集根目录
+* `--label_size`：标签热力图尺寸
+* `--batch_size`：训练数据batch
+* `--test_batch_size`：验证batch
+* `--cuda`：gpu训练
+* `--pretrained_model`：预训练模型
+* `--lr=3e-5`：初始学习率
+* `--epochs=20` ：训练epochs
+* `--test_interval`：测试间隔
 
 使用的预训练模型可用原作者提供的预训练模型，位于`model/craft_mlt_25k.pth`; 
 
@@ -124,24 +145,32 @@ Arguments
 ./
 ├── basenet
 │   ├── __init__.py
-│   └── vgg16_bn.py
+│   └── vgg16_bn.py				#vgg16网络
 ├── converts
-│   ├── icdar2013_convert.py #读取icdar2013数据
-│   └── synthText_convert.py #读取synthText数据
-├── craft_train.py
-├── craft_train_synthText.py
+│   ├── icdar2013_convert.py 	#ic13数据转换
+│   └── synthText_convert.py	#synthText数据转换
+├── dataset
+│   ├── icdar2013_dataset.py	#ic13数据读取
+│   └── synthDataset.py			#synthText数据读取
+├── eval.py						#计算验证集loss
+├── img
 ├── model
-│   └── craft_mlt_25k.pth
+│   └── craft_mlt_25k.pth		#训好的模型
 ├── net
-│   └── craft.py
-├── test.py
+│   └── craft.py				#craft网络
+├── README.md
+├── test.py						#测试代码
+├── train_finetune.py			# finetune	
+├── train_finetune.sh			
+├── train_synthText.py			#强监督训练
+├── train_synthText.sh
 └── utils
     ├── box_util.py
-    ├── cal_loss.py
+    ├── cal_loss.py				#计算loss
     ├── craft_utils.py
     ├── fake_util.py
     ├── file_utils.py
-    ├── gaussian.py
+    ├── gaussian.py				#生成高斯热图
     ├── imgproc.py
     └── img_util.py
     ```

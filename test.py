@@ -19,24 +19,14 @@ import numpy as np
 from utils import file_utils, craft_utils, imgproc
 
 from net.craft import CRAFT
-from collections import OrderedDict
+from eval import copyStateDict
 
-def copyStateDict(state_dict):
-    if list(state_dict.keys())[0].startswith("module"):
-        start_idx = 1
-    else:
-        start_idx = 0
-    new_state_dict = OrderedDict()
-    for k, v in state_dict.items():
-        name = ".".join(k.split(".")[start_idx:])
-        new_state_dict[name] = v
-    return new_state_dict
 
 def str2bool(v):
     return v.lower() in ("yes", "y", "true", "t", "1")
 
 parser = argparse.ArgumentParser(description='CRAFT Text Detection')
-parser.add_argument('--trained_model', default='INTERRUPTED.pth', type=str, help='pretrained model')
+parser.add_argument('--trained_model', default='final_net_param.pth', type=str, help='pretrained model')
 parser.add_argument('--text_threshold', default=0.5, type=float, help='text confidence threshold')
 parser.add_argument('--low_text', default=0.4, type=float, help='text low-bound score')
 parser.add_argument('--link_threshold', default=0.4, type=float, help='link confidence threshold')
@@ -45,7 +35,7 @@ parser.add_argument('--canvas_size', default=1280, type=int, help='image size fo
 parser.add_argument('--mag_ratio', default=1.5, type=float, help='image magnification ratio')
 parser.add_argument('--show_time', default=False, action='store_true', help='show processing time')
 parser.add_argument('--test_folder', default='/home/brooklyn/ICDAR/icdar2013/test_images/', type=str, help='folder path to input images')
-
+parser.add_argument('--result_folder', default='./result/', type=str, help='folder path to save result images')
 args = parser.parse_args()
 
 
@@ -53,7 +43,7 @@ args = parser.parse_args()
 image_list, _, _ = file_utils.get_files(args.test_folder)
 
 #测试结果保存路径
-result_folder = './result/'
+result_folder = args.result_folder
 if not os.path.isdir(result_folder):
     os.mkdir(result_folder)
 
@@ -101,12 +91,13 @@ if __name__ == '__main__':
     # load net
     net = CRAFT()     # initialize
     print('Loading weights from checkpoint (' + args.trained_model + ')')
-    net.load_state_dict(copyStateDict(torch.load(args.trained_model,map_location='cpu')))
-    print("net = ",net)
     if args.cuda:
+        net.load_state_dict(copyStateDict(torch.load(args.trained_model)))
         net = net.cuda()
         net = torch.nn.DataParallel(net)
         cudnn.benchmark = False
+    else:
+        net.load_state_dict(copyStateDict(torch.load(args.trained_model, map_location='cpu')))
 
     net.eval()
     t = time.time()
@@ -114,7 +105,6 @@ if __name__ == '__main__':
     print(image_list)
     # load data
     for k, image_path in enumerate(image_list):
-        print("in loop")
         print("Test image {:d}/{:d}: {:s}".format(k+1, len(image_list), image_path), end='\r')
         image = imgproc.loadImage(image_path)
         bboxes, score_text = test_net(net, image, args.text_threshold, args.link_threshold, args.low_text, args.cuda)

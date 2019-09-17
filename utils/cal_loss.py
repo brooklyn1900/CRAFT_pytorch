@@ -70,21 +70,19 @@ def cal_fakeData_loss(criterion, score_text, score_link, labels_region, labels_a
     loss1_fg = criterion(score_text[np.where(labels_region > 0.1)], labels_region[np.where(labels_region > 0.1)])
     #添加 pixel-wise confidence map
     loss1_fg = loss1_fg * sc_map[np.where(labels_region > 0.1)]
-    loss1_fg = torch.sum(loss1_fg) / numPos_region
+    loss1_fg = torch.sum(loss1_fg) / numPos_region.to(torch.float32)
     loss1_bg = criterion(score_text[np.where(labels_region <= 0.1)], labels_region[np.where(labels_region <= 0.1)])
     loss1_bg = loss1_bg * sc_map[np.where((labels_region <= 0.1))]
     #selects the pixel with high loss in the negative pixels
     loss1_bg, _ = loss1_bg.sort(descending=True)
-    loss1_bg = torch.sum(loss1_bg[:numNeg_region]) / numNeg_region
-    print('loss1_fg:', loss1_fg)
-    print('loss1_bg:', loss1_bg)
+    loss1_bg = torch.sum(loss1_bg[:numNeg_region]) / numNeg_region.to(torch.float32)
     loss2_fg = criterion(score_link[np.where(labels_affinity > 0.1)], labels_affinity[np.where(labels_affinity > 0.1)])
     loss2_fg = loss2_fg * sc_map[np.where(labels_affinity > 0.1)]
-    loss2_fg = torch.sum(loss2_fg) / numPos_affinity
+    loss2_fg = torch.sum(loss2_fg) / numPos_affinity.to(torch.float32)
     loss2_bg = criterion(score_link[np.where(labels_affinity <= 0.1)], labels_affinity[np.where(labels_affinity <= 0.1)])
     loss2_bg = loss2_bg * sc_map[np.where(labels_affinity <= 0.1)]
     loss2_bg, _ = loss2_bg.sort(descending=True)
-    loss2_bg = torch.sum(loss2_bg[:numNeg_affinity]) / numNeg_affinity
+    loss2_bg = torch.sum(loss2_bg[:numNeg_affinity]) / numNeg_affinity.to(torch.float32)
     #联合loss
     loss = loss1_fg + loss1_bg + loss2_fg + loss2_bg
 
